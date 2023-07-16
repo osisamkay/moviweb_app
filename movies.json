@@ -1,0 +1,22 @@
+[
+    {
+        "id": 1,
+        "name": "main.py",
+        "age": "2",
+        "movies": []
+    },
+    {
+        "id": 2,
+        "name": "joeseph",
+        "age": "20",
+        "movies": [
+            {
+                "id": 1,
+                "name": "bsd",
+                "director": "eqw",
+                "year": 2000,
+                "rating": 4.0
+            }
+        ]
+    }
+]
