@@ -1,9 +1,23 @@
-from flask import Flask, render_template, request, redirect, url_for
-from datamanager.json_data_manager import JSONDataManager
+import os
+
+from flask import Flask, render_template, request, redirect, url_for, flash
+
+from api import api
+from datamanager.SQLiteDataManager import SQLiteDataManager
 
 app = Flask(__name__, template_folder="templates")
+app.register_blueprint(api, url_prefix='/api')
 
-data_manager = JSONDataManager('movies.json')
+# Generate a secret key
+secret_key = os.urandom(24)  # Generate a 24-byte (192-bit) random key
+
+# Set the secret key
+app.secret_key = secret_key
+
+database_path = os.path.abspath('data/moviedb.sqlite')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
+# Initialize the SQLiteDataManager with the Flask app
+data_manager = SQLiteDataManager(app)
 
 
 # HTTP Error Handling
@@ -13,10 +27,10 @@ def page_not_found(e):
 
 
 # Exception Handling
-@app.errorhandler(Exception)
-def handle_exception(e):
-    # Log the exception or perform any other necessary actions
-    return render_template('500.html'), 500
+# @app.errorhandler(Exception)
+# def handle_exception(e):
+#     # Log the exception or perform any other necessary actions
+#     return render_template('500.html'), 500
 
 
 @app.route('/users')
@@ -64,11 +78,13 @@ def user_movies(user_id):
 @app.route('/users/<int:user_id>/add_movie', methods=['GET', 'POST'])
 def add_movie(user_id):
     """
-    Route for adding a movie for a specific user.
-    If a POST request is received, validates the form input and adds the movie to the user's list of movies.
-    Redirects to the user's movies page.
-    If a GET request is received, renders the add_movies.html template.
-    """
+     Route for adding a new movie for a specific user.
+
+     If a POST request is received, validates the form input and adds the movie to the user's list of favorite movies.
+     Redirects to the user's movies page after adding the movie.
+
+     If a GET request is received, renders the add_movie.html template.
+     """
     user = data_manager.get_user(user_id)
     if user is None:
         # Handle non-existing user ID
@@ -76,18 +92,18 @@ def add_movie(user_id):
 
     if request.method == 'POST':
         # Handle form submission
-        name = request.form['title']
+        title = request.form['title']
         director = request.form['director']
         year = int(request.form['year'])
         rating = float(request.form['rating'])
 
         # Check if the movie name already exists for the user
-        movies = user['movies']
-        if any(movie['name'] == name for movie in movies):
+        movies = data_manager.get_user_movies(user_id)  # Get the list of movies
+        if any(movie.title == title for movie in movies):
             return "Movie with the same name already exists for the user"
 
         # Process the form data and add the movie to the user's list of favorite movies
-        data_manager.add_user_movie(user_id, name, director, year, rating)
+        data_manager.add_user_movie(user_id, title, director, year, rating)
 
         # Redirect to the user's movies page
         return redirect(url_for('user_movies', user_id=user_id))
@@ -109,7 +125,7 @@ def update_movie(user_id, movie_id):
         # Handle non-existing user ID
         return "User not found"
 
-    movie = next((movie for movie in user['movies'] if movie['id'] == movie_id), None)
+    movie = data_manager.get_movie(movie_id)  # Replace this with the appropriate method to retrieve a movie
     if movie is None:
         # Handle non-existing movie ID
         return "Movie not found"
@@ -153,6 +169,43 @@ def delete_movie(user_id, movie_id):
     # Redirect to the user's movies page after deleting the movie
     return redirect(url_for('user_movies', user_id=user_id))
 
+
+@app.route('/users/<int:user_id>/add_review/<int:movie_id>', methods=['GET', 'POST'])
+def add_review(user_id, movie_id):
+    if request.method == 'POST':
+        review_text = request.form['review_text']
+        rating = request.form['rating']
+
+        if not review_text or not rating:
+            flash('Please fill out all fields.', 'error')
+            return redirect(url_for('add_review', user_id=user_id, movie_id=movie_id))
+
+        try:
+            rating = float(rating)
+            if rating < 0 or rating > 10:
+                raise ValueError()
+        except ValueError:
+            flash('Invalid rating value. Please enter a number between 0 and 10.', 'error')
+            return redirect(url_for('add_review', user_id=user_id, movie_id=movie_id))
+
+        # Validation successful, proceed to add the review
+        data_manager.add_review(user_id, movie_id, review_text, rating)
+        flash('Review added successfully.', 'success')
+        return redirect(url_for('movie_reviews', user_id=user_id, movie_id=movie_id))
+
+    else:
+        user = data_manager.get_user(user_id)
+        movie = data_manager.get_movie(movie_id)
+        return render_template('add_review.html', user=user, movie=movie)
+
+
+@app.route('/users/<int:user_id>/movie_reviews/<int:movie_id>')
+def movie_reviews(user_id, movie_id):
+    user = data_manager.get_user(user_id)
+    movie = data_manager.get_movie(movie_id)
+    reviews = data_manager.get_movie_reviews(movie_id)
+
+    return render_template('movie_reviews.html', user=user, movie=movie, reviews=reviews)
 
 
 @app.route('/')
