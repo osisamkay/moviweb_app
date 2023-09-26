@@ -2,8 +2,48 @@ from flask_sqlalchemy import SQLAlchemy
 
 from datamanager.data_manager_interface import DataManagerInterface
 from model import User, Movie, Favorites, Review
+import requests
 
 db = SQLAlchemy()
+
+
+class MovieNotFoundException(Exception):
+    pass
+
+
+def search_movie(title):
+    """
+    Search for a movie using the Omdb API.
+
+    Args:
+        title (str): The title of the movie to search.
+
+    Returns:
+        dict: Movie details obtained from the Omdb API.
+
+    Raises:
+        MovieNotFoundException: If the movie is not found.
+    """
+    url = f"http://www.omdbapi.com/?t={title}&apikey=608f304e"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for HTTP errors (e.g., 404)
+        data = response.json()
+
+        # Check if the API response indicates that the movie was not found
+        if 'Error' in data and data['Error'] == 'Movie not found!':
+            raise MovieNotFoundException(f"Movie not found: {title}")
+
+        return data
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
+        # Handle network errors or API request failures here
+        raise  # Re-raise the exception for higher-level handling
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        raise  # Re-raise the exception for higher-level handling
+
 
 class SQLiteDataManager(DataManagerInterface):
     """

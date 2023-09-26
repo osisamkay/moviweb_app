@@ -3,7 +3,7 @@ import logging
 from flask import Flask, render_template, request, redirect, url_for, flash
 
 from api import api
-from datamanager.SQLiteDataManager import SQLiteDataManager
+from datamanager.SQLiteDataManager import SQLiteDataManager, search_movie, MovieNotFoundException
 
 app = Flask(__name__, template_folder="templates")
 app.register_blueprint(api, url_prefix='/api')
@@ -87,6 +87,7 @@ def user_movies(user_id):
             return "User not found"
 
         movies = data_manager.get_user_movies(user_id)
+
         return render_template('user_movies.html', user=user, movies=movies)
     except Exception as error:
         # Log the error
@@ -98,37 +99,34 @@ def user_movies(user_id):
 
 @app.route('/users/<int:user_id>/add_movie', methods=['GET', 'POST'])
 def add_movie(user_id):
-    """
-     Route for adding a new movie for a specific user.
-
-     If a POST request is received, validates the form input and adds the movie to the user's list of favorite movies.
-     Redirects to the user's movies page after adding the movie.
-
-     If a GET request is received, renders the add_movie.html template.
-     """
     try:
         user = data_manager.get_user(user_id)
         if user is None:
-            # Handle non-existing user ID
-            return "User not found"
+            flash('User not found', 'error')
+            return redirect(url_for('list_users'))
 
         if request.method == 'POST':
             # Handle form submission
-            title = request.form['title']
-            director = request.form['director']
-            year = int(request.form['year'])
-            rating = float(request.form['rating'])
+            search_keyword = request.form['title']
 
-            # Check if the movie name already exists for the user
-            movies = data_manager.get_user_movies(user_id)  # Get the list of movies
-            if any(movie.title == title for movie in movies):
-                return "Movie with the same name already exists for the user"
+            try:
+                movie_data = search_movie(search_keyword)
+                if not movie_data:
+                    flash('Movie not found', 'error')
+                    return redirect(url_for('add_movie', user_id=user_id))
 
-            # Process the form data and add the movie to the user's list of favorite movies
-            data_manager.add_user_movie(user_id, title, director, year, rating)
+                title = movie_data.get('Title', '')
+                director = movie_data.get('Director', '')
+                year = movie_data.get('Year', '')
+                rating = movie_data.get('imdbRating', '')
 
-            # Redirect to the user's movies page
-            return redirect(url_for('user_movies', user_id=user_id))
+                # Process the form data and add the movie to the user's list of favorite movies
+                data_manager.add_user_movie(user_id, title, director, year, rating)
+
+                return redirect(url_for('user_movies', user_id=user_id))
+            except MovieNotFoundException:
+                flash('Movie not found', 'error')
+                return redirect(url_for('add_movie', user_id=user_id))
         else:
             # Display the add movie form
             return render_template('add_movies.html', user=user, user_id=user_id)
@@ -137,6 +135,8 @@ def add_movie(user_id):
         logging.error(f"An error occurred in the add_movie route: {str(error)}")
 
         # Return a 500 error page to the user
+        flash('An error occurred while processing your request.', 'error')
+
         return render_template('500.html'), 500
 
 
@@ -290,7 +290,7 @@ def movie_reviews(user_id, movie_id):
 
 @app.route('/')
 def home():
-    return "Welcome to Movie Database"
+    return render_template('home.html')
 
 
 if __name__ == '__main__':
