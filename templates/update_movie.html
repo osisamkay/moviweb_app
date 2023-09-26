@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Update Movie - MovieWeb App</title>
+    <!-- Include Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        /* Add your custom CSS styles here */
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Update Movie</h1>
+        <form action="{{ url_for('update_movie', user_id=user['id'], movie_id=movie['id']) }}" method="POST">
+            <div class="form-group">
+                <label for="title">Title:</label>
+                <input type="text" class="form-control" id="title" name="title" value="{{ movie['name'] }}" required>
+            </div>
+            <div class="form-group">
+                <label for="director">Director:</label>
+                <input type="text" class="form-control" id="director" name="director" value="{{ movie['director'] }}" required>
+            </div>
+            <div class="form-group">
+                <label for="year">Year:</label>
+                <input type="number" class="form-control" id="year" name="year" value="{{ movie['year'] }}" required>
+            </div>
+            <div class="form-group">
+                <label for="rating">Rating:</label>
+                <input type="number" class="form-control" id="rating" name="rating" value="{{ movie['rating'] }}" required step="0.1" min="0" max="10">
+            </div>
+            <button type="submit" class="btn btn-success">Update Movie</button>
+        </form>
+    </div>
+
+    <!-- Include Bootstrap JS and jQuery (optional) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
